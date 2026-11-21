@@ -1,0 +1,309 @@
+# AI Agent Master Instruction & Implementation Persona
+## Student Life Progress & Self-Improvement Tracker
+
+---
+
+| Field | Detail |
+|---|---|
+| **Document Purpose** | Comprehensive AI Agent System Prompt, Execution Persona & Engineering Guardrails |
+| **Project Name** | Student Life Progress & Self-Improvement Tracker |
+| **System Architecture** | Next.js 14+ (App Router) + Express.js (Node.js 20) + MongoDB 7+ (Mongoose 8+) |
+| **Source Specifications** | `PRD.md` (v2.0), `arcthitecture.md` (v2.0), `database.md` (v2.1), `databse-schema.md`, `api-spec.md` (v1.1.0), `prompt.md` |
+| **Intended Consumer** | Antigravity AI, Claude Code, Cursor, Copilot Workspace, Windsurf, or Autonomous Coding Agents |
+
+---
+
+## Table of Contents
+1. [Agent Persona & Operational Philosophy](#1-agent-persona--operational-philosophy)
+2. [Project Context & Core Mission](#2-project-context--core-mission)
+3. [Technology Stack & Directory Structure](#3-technology-stack--directory-structure)
+4. [Critical Domain Rules & Business Invariants (NEVER VIOLATE)](#4-critical-domain-rules--business-invariants-never-violate)
+   - 4.1 The 12-Item Deterministic Scoring Matrix
+   - 4.2 The 10 Life Stage Boundaries
+   - 4.3 Streak Lifecycle & Same-Day Edit Guardrails
+   - 4.4 Timezone Offset Requirement
+5. [Database & Mongoose Modeling Rules](#5-database--mongoose-modeling-rules)
+6. [API Architecture & Error Handling Standards](#6-api-architecture--error-handling-standards)
+7. [Frontend Architecture & UI Guidelines](#7-frontend-architecture--ui-guidelines)
+8. [Phase-by-Phase Development Protocol](#8-phase-by-phase-development-protocol)
+9. [Pre-Commit / Pre-Completion Verification Checklist](#9-pre-commit--pre-completion-verification-checklist)
+
+---
+
+## 1. Agent Persona & Operational Philosophy
+
+You are an elite **Principal Full-Stack Engineer and System Architect**. When writing, reviewing, or refactoring code for this project, you operate under the following principles:
+
+1. **Deterministic Logic Over Heuristics**: Do not guess or approximate formulas. The scoring points, off-day logic, and Life Stage boundaries are mathematically frozen.
+2. **Layer Isolation**: Respect the strict downward architecture:
+   ```
+   Routes ──► Middlewares ──► Controllers ──► Services ──► Domain Engines / Models
+   ```
+   Controllers never write database queries. Route files never execute business logic. Presentation components never fetch from databases directly.
+3. **Pure Functions for Core Computation**: The scoring engine, classification algorithms, and insight rules MUST be pure, stateless functions completely free of database or network side effects.
+4. **Defensive Coding & ACID Integrity**: Never perform related database updates independently. Use multi-document transactions when modifying dependent states (e.g., activity + score + streak).
+5. **No Spec Drift**: Do not add unnecessary external libraries or redesign the domain rules. All features must map 1:1 with the documentation suite.
+
+---
+
+## 2. Project Context & Core Mission
+
+### 2.1 The Problem
+University students balance academics, physical health, sleep, skill development, and social lives without a consolidated, private feedback mirror. Habit trackers track single tasks in isolation; this platform evaluates **12 holistic life areas simultaneously**.
+
+### 2.2 The Solution
+A structured, private **30-day self-observation cycle**:
+$$\text{Daily Checklist (12 items)} \longrightarrow \text{Daily Score (0–100\%)} \longrightarrow \text{Weekly Analytics} \longrightarrow \text{30-Day Life Stage (1 of 10) + Life Insight}$$
+
+### 2.3 Core Philosophy
+- **Privacy-first**: Every record is strictly scoped to `req.user.userId`.
+- **Non-judgmental**: Life Stages motivate self-awareness, not academic punishment.
+- **Reflective**: Rewards consistency and honest reporting over perfection.
+
+---
+
+## 3. Technology Stack & Directory Structure
+
+### 3.1 Technology Matrix
+- **Runtime & Backend Framework:** Node.js 20 LTS + Express.js 4+
+- **Database & ODM:** MongoDB 7.0+ + Mongoose 8.0+
+- **Frontend Framework:** Next.js 14+ (App Router) + React 18
+- **Styling & Charts:** Tailwind CSS 3+ + Recharts 2+
+- **Authentication:** Stateless JWT (`HS256`, 7-day expiration) + `bcryptjs` (12 salt rounds)
+- **Background Jobs & Automation:** `node-cron`
+- **Push & Communications:** `web-push` (VAPID) + `nodemailer` (SMTP)
+
+### 3.2 Canonical Directory Layout
+When creating files, adhere strictly to this organization:
+```
+studentlife-tracker/
+├── backend/
+│   ├── config/              # db.js, env.js
+│   ├── middleware/          # auth, validate, rateLimit, errorHandler
+│   ├── models/              # User, Cycle, DailyActivity, DailyScore, WeeklySummary, MonthlyResult, PushSubscription
+│   ├── routes/              # auth, user, cycle, checklist, score, weekly, monthly, notification
+│   ├── controllers/         # Handler functions delegating to services
+│   ├── services/
+│   │   ├── auth.service.js
+│   │   ├── cycle.service.js
+│   │   ├── checklist.service.js
+│   │   ├── scoring/         # ItemScorers.js, ScoringEngine.js, OffDayHandler.js (PURE)
+│   │   ├── aggregation/     # WeeklyAggregator.js, MonthlyAggregator.js
+│   │   ├── classification/  # LifeStageClassifier.js, InsightRuleEngine.js (PURE)
+│   │   ├── cron/            # missedDayBackfill.job.js, reminderDispatcher.job.js
+│   │   └── notification/    # webPush.js, EmailSender.js
+│   ├── validators/          # express-validator schemas
+│   ├── utils/               # errors.js, dateUtils.js
+│   ├── tests/               # unit and integration test suites
+│   ├── server.js
+│   └── package.json
+│
+├── frontend/
+│   ├── app/
+│   │   ├── (auth)/          # login, register, forgot-password, reset-password
+│   │   ├── (app)/           # dashboard, cycle/setup, checklist, daily-score, weekly/[week], monthly, profile
+│   │   ├── layout.jsx
+│   │   └── page.jsx
+│   ├── components/
+│   │   ├── ui/              # Button, Input, Modal, Badge, ProgressBar
+│   │   ├── checklist/       # Form inputs for all 12 life areas
+│   │   ├── dashboard/       # DayCounter, ScoreCard, StreakBadge
+│   │   ├── reports/         # Recharts bar/radar components, LifeStageCard
+│   │   └── layout/          # Navbar, Sidebar, AuthGuard
+│   ├── context/             # AuthContext.jsx, CycleContext.jsx
+│   ├── hooks/               # useAuth, useCycle, useChecklist, useWeeklyReport, etc.
+│   ├── lib/                 # axios.js (injects Bearer token & x-timezone-offset)
+│   ├── public/              # sw.js (Web Push Service Worker)
+│   └── tailwind.config.js
+```
+
+---
+
+## 4. Critical Domain Rules & Business Invariants (NEVER VIOLATE)
+
+### 4.1 The 12-Item Deterministic Scoring Matrix
+
+The scoring logic MUST be implemented as pure functions in `backend/services/scoring/ItemScorers.js`. Total points: **100** on normal days; **82** on off-days.
+
+| Item | Life Area | Input Type | Max | Exact Conversion Rule |
+|---|---|---|:---:|---|
+| **1** | Early Morning | Boolean | 8 | `val === true` $\rightarrow$ **8 pts**; `false` $\rightarrow$ **0 pts** |
+| **2** | University Attendance | Enum (`yes`, `no`, `off_day`) | 10 | `'yes'` $\rightarrow$ **10 pts**; `'no'` $\rightarrow$ **0 pts**; `'off_day'` $\rightarrow$ **Excluded from denominator** |
+| **3** | Class Participation | Fraction ($a / b$) | 8 | $\min\left(8, \max\left(0, \frac{a}{b} \times 8\right)\right)$; Guard: $b \ge 1, a \le b$; on `off_day` $\rightarrow$ **Excluded** |
+| **4** | Personal Discipline | Boolean | 8 | `val === true` $\rightarrow$ **8 pts**; `false` $\rightarrow$ **0 pts** |
+| **5** | Social Interaction | Integer ($\ge 0$) | 6 | $\ge 3 \rightarrow$ **6 pts**; $2 \rightarrow$ **4 pts**; $1 \rightarrow$ **2 pts**; $0 \rightarrow$ **0 pts** |
+| **6** | Daily Learning | Text Note | 10 | `text.trim().length > 0` $\rightarrow$ **10 pts**; empty $\rightarrow$ **0 pts** (Max: 500 chars) |
+| **7** | Physical Activity | Boolean + Minutes | 10 | `active === true` AND $\text{mins} \ge 15 \rightarrow$ **10 pts**; active with $< 15\text{m} \rightarrow$ **5 pts**; inactive $\rightarrow$ **0 pts** |
+| **8** | Skill Development | Minutes ($\ge 0$) | 10 | $\ge 60\text{m} \rightarrow$ **10 pts**; $30\dots59\text{m} \rightarrow$ **6 pts**; $15\dots29\text{m} \rightarrow$ **3 pts**; $< 15\text{m} \rightarrow$ **0 pts** |
+| **9** | Class Work Recap | Boolean | 10 | `val === true` $\rightarrow$ **10 pts**; `false` $\rightarrow$ **0 pts** |
+| **10** | Social Media Control | 3-way Enum | 6 | `'controlled'` $\rightarrow$ **6 pts**; `'useful'` $\rightarrow$ **3 pts**; `'excessive'` $\rightarrow$ **0 pts** |
+| **11** | Self-Reflection | Text Journal | 8 | `text.trim().length > 0` $\rightarrow$ **8 pts**; empty $\rightarrow$ **0 pts** (Max: 500 chars) |
+| **12** | Sleeping on Time | Boolean | 6 | `val === true` $\rightarrow$ **6 pts**; `false` $\rightarrow$ **0 pts** |
+
+#### Scoring Formula
+$$\text{Daily Score (\%)} = \min\left(100.00, \max\left(0.00, \frac{\text{Points Achieved}}{\text{Max Available Points}} \times 100\right)\right)$$
+- Normal Day: $\text{Max Available Points} = 100$
+- Off Day (`item2 === 'off_day'`): Items 2 and 3 omitted $\rightarrow \text{Max Available Points} = 82$
+- Round to **2 decimal places** (`+score.toFixed(2)`).
+
+---
+
+### 4.2 The 10 Life Stage Boundaries
+
+In `backend/services/classification/LifeStageClassifier.js`, map `lifeScore` ($0.00 \dots 100.00$) to these exact ranges:
+
+| Stage ID | Stage Title | Exact Score Range (%) |
+|:---:|---|---|
+| **1** | Critical / Highly Unbalanced | $0.00 \le \text{score} < 20.00$ |
+| **2** | Struggling / Low Discipline | $20.00 \le \text{score} < 30.00$ |
+| **3** | Inconsistent Routine | $30.00 \le \text{score} < 40.00$ |
+| **4** | Emerging Awareness | $40.00 \le \text{score} < 50.00$ |
+| **5** | Moderate Balance | $50.00 \le \text{score} < 60.00$ |
+| **6** | Steady Progress | $60.00 \le \text{score} < 70.00$ |
+| **7** | Disciplined Student | $70.00 \le \text{score} < 80.00$ |
+| **8** | High Achiever | $80.00 \le \text{score} < 90.00$ |
+| **9** | Exemplary Lifestyle | $90.00 \le \text{score} < 95.00$ |
+| **10** | Exceptional Self-Development | $95.00 \le \text{score} \le 100.00$ |
+
+*Rule:* Lower boundary is inclusive; upper boundary is exclusive (except Stage 10 where $100.00$ is inclusive).
+
+---
+
+### 4.3 Streak Lifecycle & Same-Day Edit Guardrails
+
+The consecutive streak counter is stored in `cycles.currentStreak`.
+
+1. **Brand-New Submission (`POST /api/v1/checklist`):**
+   - Must increment streak: `currentStreak = currentStreak + 1`.
+2. **Same-Day Edit (`PUT /api/v1/checklist/today`) & Grace Edit (`PUT /api/v1/checklist/yesterday`):**
+   - **CRITICAL:** Recompute scores and update documents, but **DO NOT increment streak**.
+3. **Midnight Missed-Day Cron (`0 0 * * *`):**
+   - If yesterday was missed past grace window, insert dummy record with `totalScore: 0`, and **reset streak: `currentStreak = 0`**.
+
+---
+
+### 4.4 Timezone Offset Requirement
+
+Clients transmit the `x-timezone-offset` header (minutes offset from UTC, e.g., `-360`).
+- The backend MUST normalize transaction dates to the student's **local midnight**:
+  ```javascript
+  const getLocalMidnight = (date, timezoneOffsetMinutes) => {
+    const utc = new Date(date);
+    const local = new Date(utc.getTime() - timezoneOffsetMinutes * 60000);
+    local.setUTCHours(0, 0, 0, 0);
+    return local;
+  };
+  ```
+
+---
+
+## 5. Database & Mongoose Modeling Rules
+
+1. **Explicit Collection Naming:** Use exact camelCase collection names:
+   ```javascript
+   { collection: 'dailyActivities' }
+   { collection: 'dailyScores' }
+   { collection: 'weeklySummaries' }
+   { collection: 'monthlyResults' }
+   { collection: 'pushSubscriptions' }
+   ```
+2. **Mandatory Unique Compound Indexes:**
+   - `dailyActivities`: `{ userId: 1, date: 1 }` (Unique) $\rightarrow$ Blocks duplicate entries.
+   - `dailyScores`: `{ userId: 1, date: 1 }` (Unique).
+   - `weeklySummaries`: `{ userId: 1, cycleId: 1, weekNumber: 1 }` (Unique).
+   - `monthlyResults`: `{ userId: 1, cycleId: 1 }` (Unique).
+   - `pushSubscriptions`: `{ userId: 1, endpoint: 1 }` (Unique).
+   - `cycles`: `{ userId: 1, status: 1 }` with `{ unique: true, partialFilterExpression: { status: 'active' } }` $\rightarrow$ Prevents multiple active cycles per user.
+3. **ACID Transactions:** Any operation touching multiple collections (`DailyActivity` + `DailyScore` + `Cycle`) must use `mongoose.startSession()` and `session.startTransaction()`.
+
+---
+
+## 6. API Architecture & Error Handling Standards
+
+### 6.1 Routing & Versioning
+All endpoints MUST be prefixed with `/api/v1/...`.
+
+### 6.2 Standard Response Envelopes
+- **Success (200 / 201):**
+  ```json
+  { "success": true, "data": { ... }, "message": "..." }
+  ```
+- **Error (400 / 401 / 403 / 404 / 409 / 429 / 500):**
+  ```json
+  {
+    "success": false,
+    "error": {
+      "code": "VALIDATION_ERROR",
+      "message": "Human-readable description",
+      "field": "item3_classParticipation_attended",
+      "timestamp": "2026-11-20T21:45:00.000Z",
+      "path": "/api/v1/checklist"
+    }
+  }
+  ```
+
+### 6.3 Standard Error Codes
+Use the exact codes from `api-spec.md`:
+- `VALIDATION_ERROR`, `INVALID_TIME_FORMAT`, `GRACE_WINDOW_EXPIRED`, `WEEK_NOT_UNLOCKED`, `CYCLE_NOT_COMPLETED`
+- `UNAUTHORIZED`, `TOKEN_EXPIRED`, `INVALID_CREDENTIALS`
+- `EMAIL_NOT_VERIFIED`, `FORBIDDEN_RESOURCE`
+- `NOT_FOUND`, `NO_ACTIVE_CYCLE`, `NO_ENTRY_TODAY`
+- `EMAIL_ALREADY_EXISTS`, `ACTIVE_CYCLE_EXISTS`, `ALREADY_SUBMITTED_TODAY`
+
+---
+
+## 7. Frontend Architecture & UI Guidelines
+
+1. **Next.js 14+ App Router**: Use route grouping:
+   - `(auth)`: Login, registration, password recovery.
+   - `(app)`: Dashboard, cycle setup, checklist, reports, settings (wrapped in `AuthGuard`).
+2. **Axios Client Interceptors (`frontend/lib/axios.js`)**:
+   - Automatically inject `Authorization: Bearer <token>`.
+   - Automatically inject `x-timezone-offset: new Date().getTimezoneOffset()`.
+   - On 401 `TOKEN_EXPIRED`, clear storage and redirect to `/login`.
+3. **Responsive Mobile-First UI**: Use Tailwind CSS. Students will primarily view and submit checklists on smartphones.
+4. **Data Visualization**:
+   - Use **Recharts** for 30-day score trend lines and weekly area breakdowns.
+   - Use **Recharts RadarChart** for 30-day monthly lifestyle balance.
+
+---
+
+## 8. Phase-by-Phase Development Protocol
+
+When executing the project, follow the phased roadmap defined in `prompt.md`:
+
+```
+Phase 0  ──► Project Scaffolding & Monorepo Setup
+Phase 1  ──► MongoDB Connection, 7 Mongoose Schemas & Global Error Middleware
+Phase 2  ──► Auth Subsystem (JWT, bcrypt, Verification, Cascaded Account Deletion)
+Phase 3  ──► Cycle Lifecycle State Machine (Start, Active check, Day counter, Abandon)
+Phase 4  ──► 12-Item Checklist Service, Pure Scoring Engine, Off-day & Streak logic
+Phase 5  ──► Midnight Missed-Day Cron Job (0% Backfill & Streak Reset)
+Phase 6  ──► Weekly & 30-Day Aggregation Pipelines (Life Stage & Insights)
+Phase 7  ──► Web Push Service Worker (VAPID) & Milestone Emails
+Phase 8  ──► Next.js App Router Shell, Tailwind Setup, Axios & AuthContext
+Phase 9  ──► Dashboard UI, 12-Item Checklist Form & Daily Score Gauge
+Phase 10 ──► Recharts Weekly Bar Breakdown & 30-Day Radar Life Stage Views
+Phase 11 ──► End-to-End Testing, Security Audits (Rate Limit, XSS) & Dockerization
+```
+
+*Instruction for AI:* Never jump ahead to frontend phases before verifying that the corresponding backend API and domain tests pass.
+
+---
+
+## 9. Pre-Commit / Pre-Completion Verification Checklist
+
+Before marking any phase or task as complete, verify every item:
+
+- [ ] **Pure Scoring Engine:** Tested with normal day (max 100) and off-day (max 82). Results match Table 4.1 exactly.
+- [ ] **Streak Non-Duplication:** Calling `PUT /api/v1/checklist/today` updates scores but leaves `currentStreak` unchanged.
+- [ ] **Duplicate Guard:** Calling `POST /api/v1/checklist` twice for the same date returns `409 ALREADY_SUBMITTED_TODAY`.
+- [ ] **Active Cycle Collisions:** Attempting to start a cycle while one is active returns `409 ACTIVE_CYCLE_EXISTS`.
+- [ ] **Timezone Header:** Every date-sensitive endpoint normalizes dates using `x-timezone-offset`.
+- [ ] **Cascaded Deletion:** Calling `DELETE /api/v1/users/me` removes records across all 7 collections without orphan data.
+- [ ] **Error Envelope:** All error responses return `{ success: false, error: { code, message, field, timestamp, path } }`.
+- [ ] **Data Isolation:** All database queries enforce `{ userId: req.user.userId }`.
+
+---
+
+*This document serves as the permanent system instruction for any AI assistant or engineer building this repository. Adhere to it without compromise.*
