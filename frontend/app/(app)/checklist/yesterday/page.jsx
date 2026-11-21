@@ -1,0 +1,617 @@
+'use client';
+
+import React, { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import api from '@/lib/axios';
+import { calculateLiveScores } from '@/lib/scoringCalculator';
+import ChecklistItemCard from '@/components/checklist/ChecklistItemCard';
+import Button from '@/components/ui/Button';
+import Alert from '@/components/ui/Alert';
+import {
+  Sparkles,
+  ArrowLeft,
+  Save,
+  AlertTriangle,
+  Minus,
+  Plus,
+} from 'lucide-react';
+
+export default function YesterdayChecklistPage() {
+  const router = useRouter();
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const [formData, setFormData] = useState({
+    item1_earlyMorning: false,
+    item2_universityAttendance: 'yes',
+    item3_classParticipation_attended: 3,
+    item3_classParticipation_total: 3,
+    item4_personalDiscipline: false,
+    item5_socialInteractions_count: 2,
+    item6_dailyLearning_text: '',
+    item7_physicalActivity_active: false,
+    item7_physicalActivity_minutes: 20,
+    item8_skillDevelopment_minutes: 30,
+    item9_classWorkRecap: false,
+    item10_socialMediaControl: 'controlled',
+    item11_selfReflection_text: '',
+    item12_sleepingOnTime: false,
+  });
+
+  const liveScore = useMemo(() => calculateLiveScores(formData), [formData]);
+
+  useEffect(() => {
+    loadCycleData();
+  }, []);
+
+  const loadCycleData = async () => {
+    try {
+      setIsLoading(true);
+      await api.get('/cycles/active');
+    } catch (err) {
+      if (err.response?.data?.error?.code === 'NO_ACTIVE_CYCLE') {
+        router.replace('/cycle/setup');
+      } else {
+        setError(err.response?.data?.error?.message || 'Failed to verify active cycle.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateField = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setIsSubmitting(true);
+
+    try {
+      await api.put('/checklist/yesterday', formData);
+      router.push('/dashboard');
+    } catch (err) {
+      setError(
+        err.response?.data?.error?.message ||
+          'Failed to record grace entry for yesterday. The grace window may have expired.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-3xl mx-auto py-12 text-center text-slate-500 space-y-4">
+        <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-sm font-semibold">Verifying grace window...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-3xl mx-auto pb-28 space-y-6">
+      {/* Grace Window Notice */}
+      <div className="bg-amber-50 border border-amber-200/90 rounded-3xl p-6 text-amber-900 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-amber-100 flex items-center justify-center shrink-0 text-amber-600 mt-0.5">
+            <AlertTriangle className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-base font-extrabold tracking-tight text-amber-950">
+              Grace Period Entry for Yesterday
+            </h3>
+            <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
+              You are logging your habits for the previous calendar day. Complete this before midnight to protect your active cycle streak!
+            </p>
+          </div>
+        </div>
+
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 hover:text-amber-700 bg-amber-100/80 px-3 py-1.5 rounded-xl self-end sm:self-auto"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Cancel
+        </Link>
+      </div>
+
+      {error && <Alert type="error" title="Submission Error" message={error} />}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Item 1: Early Morning */}
+        <ChecklistItemCard
+          itemNumber={1}
+          title="Early Morning Wake-up"
+          category="Personal"
+          points={liveScore.scores.item1}
+          maxPoints={8}
+          description="Did you wake up on or before your target wake-up time yesterday?"
+        >
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => updateField('item1_earlyMorning', true)}
+              className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-bold border transition-all ${
+                formData.item1_earlyMorning
+                  ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              ✓ Yes, on time (+8 pts)
+            </button>
+            <button
+              type="button"
+              onClick={() => updateField('item1_earlyMorning', false)}
+              className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-bold border transition-all ${
+                !formData.item1_earlyMorning
+                  ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
+                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              ✗ Woke up late (0 pts)
+            </button>
+          </div>
+        </ChecklistItemCard>
+
+        {/* Item 2: University Attendance */}
+        <ChecklistItemCard
+          itemNumber={2}
+          title="University Attendance"
+          category="Academic"
+          points={liveScore.scores.item2}
+          maxPoints={liveScore.isOffDay ? 0 : 10}
+          description="Did you attend university yesterday, or was it a scheduled off-day?"
+        >
+          <div className="grid grid-cols-3 gap-2.5">
+            {[
+              { id: 'yes', label: 'Attended', pts: '+10 pts' },
+              { id: 'no', label: 'Absent', pts: '0 pts' },
+              { id: 'off_day', label: 'Off-Day', pts: 'Excluded' },
+            ].map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => updateField('item2_universityAttendance', opt.id)}
+                className={`py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold border transition-all text-center ${
+                  formData.item2_universityAttendance === opt.id
+                    ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <div>{opt.label}</div>
+                <div className="text-[10px] font-normal opacity-80 mt-0.5">{opt.pts}</div>
+              </button>
+            ))}
+          </div>
+        </ChecklistItemCard>
+
+        {/* Item 3: Class Participation */}
+        <ChecklistItemCard
+          itemNumber={3}
+          title="Class Participation Rate"
+          category="Academic"
+          points={liveScore.scores.item3}
+          maxPoints={liveScore.isOffDay ? 0 : 8}
+          description="Classes attended out of total scheduled yesterday."
+          isOffDayDisabled={liveScore.isOffDay}
+        >
+          <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div className="flex-1 w-full flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-600">Attended:</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={formData.item3_classParticipation_attended <= 0}
+                  onClick={() =>
+                    updateField(
+                      'item3_classParticipation_attended',
+                      Math.max(0, formData.item3_classParticipation_attended - 1)
+                    )
+                  }
+                  className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-700 disabled:opacity-40"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </button>
+                <span className="w-8 text-center font-bold text-slate-900">
+                  {formData.item3_classParticipation_attended}
+                </span>
+                <button
+                  type="button"
+                  disabled={
+                    formData.item3_classParticipation_attended >=
+                    formData.item3_classParticipation_total
+                  }
+                  onClick={() =>
+                    updateField(
+                      'item3_classParticipation_attended',
+                      Math.min(
+                        formData.item3_classParticipation_total,
+                        formData.item3_classParticipation_attended + 1
+                      )
+                    )
+                  }
+                  className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-700 disabled:opacity-40"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="hidden sm:block text-slate-300 font-bold">/</div>
+
+            <div className="flex-1 w-full flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-600">Total:</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={formData.item3_classParticipation_total <= 1}
+                  onClick={() => {
+                    const newTotal = Math.max(1, formData.item3_classParticipation_total - 1);
+                    updateField('item3_classParticipation_total', newTotal);
+                    if (formData.item3_classParticipation_attended > newTotal) {
+                      updateField('item3_classParticipation_attended', newTotal);
+                    }
+                  }}
+                  className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-700 disabled:opacity-40"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </button>
+                <span className="w-8 text-center font-bold text-slate-900">
+                  {formData.item3_classParticipation_total}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateField(
+                      'item3_classParticipation_total',
+                      formData.item3_classParticipation_total + 1
+                    )
+                  }
+                  className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-700"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </ChecklistItemCard>
+
+        {/* Item 4: Discipline */}
+        <ChecklistItemCard
+          itemNumber={4}
+          title="Personal Discipline & Room Order"
+          category="Personal"
+          points={liveScore.scores.item4}
+          maxPoints={8}
+          description="Did you maintain personal order and cleanliness yesterday?"
+        >
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => updateField('item4_personalDiscipline', true)}
+              className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-bold border transition-all ${
+                formData.item4_personalDiscipline
+                  ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              ✓ Maintained (+8 pts)
+            </button>
+            <button
+              type="button"
+              onClick={() => updateField('item4_personalDiscipline', false)}
+              className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-bold border transition-all ${
+                !formData.item4_personalDiscipline
+                  ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
+                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              ✗ Neglected (0 pts)
+            </button>
+          </div>
+        </ChecklistItemCard>
+
+        {/* Item 5: Social Interactions */}
+        <ChecklistItemCard
+          itemNumber={5}
+          title="Social Interactions"
+          category="Social"
+          points={liveScore.scores.item5}
+          maxPoints={6}
+          description="Meaningful conversations held yesterday."
+        >
+          <div className="flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <span className="text-xs font-semibold text-slate-600">Count (&ge;3 = 6 pts):</span>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                disabled={formData.item5_socialInteractions_count <= 0}
+                onClick={() =>
+                  updateField(
+                    'item5_socialInteractions_count',
+                    Math.max(0, formData.item5_socialInteractions_count - 1)
+                  )
+                }
+                className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-700 disabled:opacity-40"
+              >
+                <Minus className="w-4 h-4" />
+              </button>
+              <span className="w-10 text-center text-lg font-black text-slate-900">
+                {formData.item5_socialInteractions_count}
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  updateField(
+                    'item5_socialInteractions_count',
+                    formData.item5_socialInteractions_count + 1
+                  )
+                }
+                className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-700"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </ChecklistItemCard>
+
+        {/* Item 6: Daily Learning */}
+        <ChecklistItemCard
+          itemNumber={6}
+          title="Daily Learning Note"
+          category="Academic"
+          points={liveScore.scores.item6}
+          maxPoints={10}
+          description="What did you learn yesterday?"
+        >
+          <textarea
+            rows={3}
+            maxLength={500}
+            placeholder="Yesterday I studied..."
+            value={formData.item6_dailyLearning_text}
+            onChange={(e) => updateField('item6_dailyLearning_text', e.target.value)}
+            className="w-full rounded-xl border border-slate-300 p-3 text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+          />
+        </ChecklistItemCard>
+
+        {/* Item 7: Physical Fitness */}
+        <ChecklistItemCard
+          itemNumber={7}
+          title="Physical Activity"
+          category="Physical"
+          points={liveScore.scores.item7}
+          maxPoints={10}
+          description="Exercise or active workout yesterday."
+        >
+          <div className="space-y-3">
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => updateField('item7_physicalActivity_active', true)}
+                className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-bold border transition-all ${
+                  formData.item7_physicalActivity_active
+                    ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                ✓ Exercised Yesterday
+              </button>
+              <button
+                type="button"
+                onClick={() => updateField('item7_physicalActivity_active', false)}
+                className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-bold border transition-all ${
+                  !formData.item7_physicalActivity_active
+                    ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                ✗ Inactive (0 pts)
+              </button>
+            </div>
+
+            {formData.item7_physicalActivity_active && (
+              <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <span className="text-xs font-semibold text-slate-600">Minutes:</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="300"
+                  value={formData.item7_physicalActivity_minutes}
+                  onChange={(e) =>
+                    updateField('item7_physicalActivity_minutes', Number(e.target.value))
+                  }
+                  className="w-24 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold text-center"
+                />
+              </div>
+            )}
+          </div>
+        </ChecklistItemCard>
+
+        {/* Item 8: Skill Development */}
+        <ChecklistItemCard
+          itemNumber={8}
+          title="Skill Development"
+          category="Skill"
+          points={liveScore.scores.item8}
+          maxPoints={10}
+          description="Coding, design, or project minutes yesterday."
+        >
+          <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <span className="text-xs font-semibold text-slate-600">Minutes spent:</span>
+            <input
+              type="number"
+              min="0"
+              max="600"
+              step="5"
+              value={formData.item8_skillDevelopment_minutes}
+              onChange={(e) =>
+                updateField('item8_skillDevelopment_minutes', Number(e.target.value))
+              }
+              className="w-24 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold text-center"
+            />
+          </div>
+        </ChecklistItemCard>
+
+        {/* Item 9: Class Recap */}
+        <ChecklistItemCard
+          itemNumber={9}
+          title="Lecture Recap"
+          category="Academic"
+          points={liveScore.scores.item9}
+          maxPoints={10}
+          description="Did you review coursework yesterday?"
+        >
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => updateField('item9_classWorkRecap', true)}
+              className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-bold border transition-all ${
+                formData.item9_classWorkRecap
+                  ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              ✓ Reviewed (+10 pts)
+            </button>
+            <button
+              type="button"
+              onClick={() => updateField('item9_classWorkRecap', false)}
+              className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-bold border transition-all ${
+                !formData.item9_classWorkRecap
+                  ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
+                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              ✗ Skipped (0 pts)
+            </button>
+          </div>
+        </ChecklistItemCard>
+
+        {/* Item 10: Social Media Control */}
+        <ChecklistItemCard
+          itemNumber={10}
+          title="Social Media Control"
+          category="Personal"
+          points={liveScore.scores.item10}
+          maxPoints={6}
+          description="Screen time discipline yesterday."
+        >
+          <div className="grid grid-cols-3 gap-2.5">
+            {[
+              { id: 'controlled', label: 'Controlled', pts: '+6 pts' },
+              { id: 'useful', label: 'Moderate', pts: '+3 pts' },
+              { id: 'excessive', label: 'Excessive', pts: '0 pts' },
+            ].map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => updateField('item10_socialMediaControl', opt.id)}
+                className={`py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold border transition-all text-center ${
+                  formData.item10_socialMediaControl === opt.id
+                    ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <div>{opt.label}</div>
+                <div className="text-[10px] font-normal opacity-80 mt-0.5">{opt.pts}</div>
+              </button>
+            ))}
+          </div>
+        </ChecklistItemCard>
+
+        {/* Item 11: Reflection */}
+        <ChecklistItemCard
+          itemNumber={11}
+          title="Yesterday's Self-Reflection"
+          category="Personal"
+          points={liveScore.scores.item11}
+          maxPoints={8}
+          description="Honest reflection notes."
+        >
+          <textarea
+            rows={3}
+            maxLength={500}
+            placeholder="Looking back at yesterday..."
+            value={formData.item11_selfReflection_text}
+            onChange={(e) => updateField('item11_selfReflection_text', e.target.value)}
+            className="w-full rounded-xl border border-slate-300 p-3 text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+          />
+        </ChecklistItemCard>
+
+        {/* Item 12: Sleep on time */}
+        <ChecklistItemCard
+          itemNumber={12}
+          title="Sleeping on Time"
+          category="Physical"
+          points={liveScore.scores.item12}
+          maxPoints={6}
+          description="Did you sleep on time yesterday night?"
+        >
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => updateField('item12_sleepingOnTime', true)}
+              className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-bold border transition-all ${
+                formData.item12_sleepingOnTime
+                  ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              ✓ Slept on time (+6 pts)
+            </button>
+            <button
+              type="button"
+              onClick={() => updateField('item12_sleepingOnTime', false)}
+              className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-bold border transition-all ${
+                !formData.item12_sleepingOnTime
+                  ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
+                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              ✗ Stayed up late (0 pts)
+            </button>
+          </div>
+        </ChecklistItemCard>
+      </form>
+
+      {/* Sticky Bottom Bar */}
+      <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-200 py-3.5 px-4 z-40 shadow-lg">
+        <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col items-center justify-center">
+              <span className="text-xs font-black text-amber-700 leading-none">
+                {liveScore.totalScore}%
+              </span>
+              <span className="text-[9px] font-bold text-amber-600 uppercase">Score</span>
+            </div>
+            <div>
+              <div className="text-sm font-extrabold text-slate-900">
+                {liveScore.achievedPoints} / {liveScore.maxAvailablePoints} Pts
+              </div>
+              <div className="text-xs text-slate-500">
+                Grace-period backfill for yesterday
+              </div>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="primary"
+            size="lg"
+            isLoading={isSubmitting}
+            onClick={handleSubmit}
+            className="bg-amber-600 hover:bg-amber-700 shadow-md shadow-amber-500/20"
+          >
+            <Save className="w-4 h-4 mr-1.5" />
+            <span>Save Yesterday</span>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}

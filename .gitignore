@@ -12,6 +12,10 @@ out/
 build/
 dist/
 
+# Expo
+.expo/
+*.tsbuildinfo
+
 # Environment files
 .env
 .env.local
